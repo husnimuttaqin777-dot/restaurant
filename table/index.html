@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DineEase - Restaurant Menu</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Playfair Display', 'serif'],
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#fef7ee',
+              100: '#fdedd3',
+              200: '#fad7a5',
+              300: '#f6ba6d',
+              400: '#f19a38',
+              500: '#ee8016',
+              600: '#df6609',
+              700: '#b94c09',
+              800: '#933c0f',
+              900: '#773210',
+            },
+            warm: {
+              50: '#faf8f5',
+              100: '#f5f0e8',
+              200: '#ebe0cc',
+              800: '#2d2418',
+              900: '#1a150e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', sans-serif; }
+    .font-display { font-family: 'Playfair Display', serif; }
+    .menu-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .menu-card:hover { transform: translateY(-2px); }
+    .menu-card:active { transform: scale(0.98); }
+    .cart-slide { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+    .cart-slide.open { transform: translateX(0); }
+    .cart-slide.closed { transform: translateX(100%); }
+    .overlay { transition: opacity 0.3s ease; }
+    .qty-btn { transition: all 0.15s ease; }
+    .qty-btn:active { transform: scale(0.85); }
+    .badge-bounce { animation: badgeBounce 0.4s ease; }
+    @keyframes badgeBounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.4); }
+    }
+    .fade-in { animation: fadeIn 0.3s ease forwards; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .qr-modal { animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .shimmer {
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+      background-size: 200% 100%;
+      animation: shimmer 2s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .tab-active {
+      background: linear-gradient(135deg, #ee8016, #f19a38);
+      color: white;
+      box-shadow: 0 4px 15px rgba(238, 128, 22, 0.4);
+    }
+    .order-item-enter {
+      animation: slideRight 0.3s ease forwards;
+    }
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+    .table-pattern {
+      background-image: 
+        radial-gradient(circle at 20% 50%, rgba(238, 128, 22, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(238, 128, 22, 0.03) 0%, transparent 50%);
+    }
+  </style>
+</head>
+<body class="bg-warm-50 text-warm-900 min-h-screen table-pattern">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-warm-50/90 backdrop-blur-lg border-b border-warm-200/60">
+    <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/30">
+          <i data-lucide="utensils" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="font-display font-bold text-lg leading-tight">Restoran dummy</h1>
+          <p class="text-xs text-warm-800/50" id="tableInfo">Table 7 • Floor 2</p>
+        </div>
+      </div>
+      <button onclick="toggleCart()" class="relative p-2.5 rounded-xl bg-white border border-warm-200 shadow-sm hover:shadow-md transition-all">
+        <i data-lucide="shopping-bag" class="w-5 h-5 text-warm-800"></i>
+        <span id="cartBadge" class="hidden absolute -top-1.5 -right-1.5 w-5 h-5 bg-brand-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Welcome Banner -->
+  <div class="max-w-lg mx-auto px-4 pt-5 pb-2">
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-warm-900 to-warm-800 p-5 text-white">
+      <div class="absolute top-0 right-0 w-32 h-32 bg-brand-500/20 rounded-full blur-2xl"></div>
+      <div class="relative z-10">
+        <p class="text-brand-300 text-xs font-semibold tracking-widest uppercase mb-1">Welcome to</p>
+        <h2 class="font-display text-2xl font-bold mb-1">The Golden Fork</h2>
+        <p class="text-white/60 text-sm">Authentic cuisine crafted with passion</p>
+        <div class="flex items-center gap-3 mt-3 text-xs text-white/50">
+          <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Open now</span>
+          <span class="flex items-center gap-1"><i data-lucide="star" class="w-3 h-3 text-brand-400"></i> 4.8</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Tabs -->
+  <div class="max-w-lg mx-auto px-4 pt-4 pb-2">
+    <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" id="categoryTabs">
+      <button onclick="filterCategory('all')" data-cat="all" class="tab-btn tab-active flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300">
+        All
+      </button>
+      <button onclick="filterCategory('starters')" data-cat="starters" class="tab-btn flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold bg-white border border-warm-200 text-warm-800/70 hover:border-brand-300 transition-all duration-300">
+        🥗 Starters
+      </button>
+      <button onclick="filterCategory('mains')" data-cat="mains" class="tab-btn flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold bg-white border border-warm-200 text-warm-800/70 hover:border-brand-300 transition-all duration-300">
+        🍝 Mains
+      </button>
+      <button onclick="filterCategory('desserts')" data-cat="desserts" class="tab-btn flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold bg-white border border-warm-200 text-warm-800/70 hover:border-brand-300 transition-all duration-300">
+        🍰 Desserts
+      </button>
+      <button onclick="filterCategory('drinks')" data-cat="drinks" class="tab-btn flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold bg-white border border-warm-200 text-warm-800/70 hover:border-brand-300 transition-all duration-300">
+        🥤 Drinks
+      </button>
+      <button onclick="filterCategory('cocktails')" data-cat="cocktails" class="tab-btn flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold bg-white border border-warm-200 text-warm-800/70 hover:border-brand-300 transition-all duration-300">
+        🍸 Cocktails
+      </button>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="max-w-lg mx-auto px-4 pb-3">
+    <div class="relative">
+      <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-800/30"></i>
+      <input type="text" id="searchInput" oninput="searchMenu()" placeholder="Search menu..." class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-warm-200 text-sm focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 transition-all">
+    </div>
+  </div>
+
+  <!-- Menu Grid -->
+  <main class="max-w-lg mx-auto px-4 pb-32" id="menuGrid">
+    <!-- Populated by JS -->
+  </main>
+
+  <!-- Cart Overlay -->
+  <div id="cartOverlay" class="fixed inset-0 z-50 bg-black/40 overlay opacity-0 pointer-events-none" onclick="toggleCart()"></div>
+
+  <!-- Cart Sidebar -->
+  <div id="cartSidebar" class="fixed top-0 right-0 bottom-0 z-50 w-full max-w-sm bg-white cart-slide closed shadow-2xl flex flex-col">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-warm-100">
+      <div class="flex items-center gap-2">
+        <i data-lucide="shopping-bag" class="w-5 h-5 text-brand-500"></i>
+        <h2 class="font-display font-bold text-lg">Your Order</h2>
+      </div>
+      <button onclick="toggleCart()" class="p-2 rounded-lg hover:bg-warm-100 transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <div id="cartItems" class="flex-1 overflow-y-auto px-5 py-4">
+      <div id="emptyCart" class="flex flex-col items-center justify-center h-full text-center">
+        <div class="w-20 h-20 rounded-full bg-warm-100 flex items-center justify-center mb-4">
+          <i data-lucide="utensils-crossed" class="w-8 h-8 text-warm-800/30"></i>
+        </div>
+        <p class="font-semibold text-warm-800/60">No items yet</p>
+        <p class="text-sm text-warm-800/40 mt-1">Browse the menu and add your favorites</p>
+      </div>
+      <div id="cartItemsList" class="space-y-3 hidden"></div>
+    </div>
+
+    <div id="cartFooter" class="hidden border-t border-warm-100 px-5 py-4 bg-warm-50/80">
+      <div class="space-y-1.5 mb-4">
+        <div class="flex justify-between text-sm text-warm-800/60">
+          <span>Subtotal</span>
+          <span id="subtotal">$0.00</span>
+        </div>
+        <div class="flex justify-between text-sm text-warm-800/60">
+          <span>Tax (10%)</span>
+          <span id="tax">$0.00</span>
+        </div>
+        <div class="flex justify-between text-sm text-warm-800/60">
+          <span>Service charge (5%)</span>
+          <span id="serviceCharge">$0.00</span>
+        </div>
+        <div class="border-t border-warm-200 pt-2 flex justify-between font-bold text-lg">
+          <span>Total</span>
+          <span id="total" class="text-brand-600">$0.00</span>
+        </div>
+      </div>
+      <button onclick="proceedToPayment()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white font-semibold text-sm shadow-lg shadow-brand-500/30 hover:shadow-xl hover:shadow-brand-500/40 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+        <i data-lucide="qr-code" class="w-4 h-4"></i>
+        Pay with QR Code
+      </button>
+    </div>
+  </div>
+
+  <!-- QR Payment Modal -->
+  <div id="qrModal" class="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 hidden">
+    <div class="qr-modal bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl">
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-br from-warm-900 to-warm-800 p-6 text-white text-center relative overflow-hidden">
+        <div class="absolute inset-0 shimmer"></div>
+        <div class="relative z-10">
+          <div class="w-12 h-12 mx-auto rounded-xl bg-brand-500/20 flex items-center justify-center mb-3">
+            <i data-lucide="scan-line" class="w-6 h-6 text-brand-400"></i>
+          </div>
+          <h3 class="font-display text-xl font-bold">Scan to Pay</h3>
+          <p class="text-white/60 text-sm mt-1">Use your banking app to scan</p>
+        </div>
+      </div>
+
+      <!-- QR Code -->
+      <div class="p-6 flex flex-col items-center">
+        <div id="qrCode" class="bg-white p-4 rounded-2xl shadow-inner border-2 border-warm-100 mb-4"></div>
+        <div class="w-full bg-warm-50 rounded-xl p-4 mb-4">
+          <div class="flex justify-between text-sm mb-2">
+            <span class="text-warm-800/50">Order #</span>
+            <span class="font-semibold" id="orderNumber">#DNE-0007</span>
+          </div>
+          <div class="flex justify-between text-sm mb-2">
+            <span class="text-warm-800/50">Table</span>
+            <span class="font-semibold" id="qrTableNum">7</span>
+          </div>
+          <div class="flex justify-between text-sm mb-2">
+            <span class="text-warm-800/50">Items</span>
+            <span class="font-semibold" id="qrItemCount">0</span>
+          </div>
+          <div class="border-t border-warm-200 pt-2 mt-2 flex justify-between font-bold text-lg">
+            <span>Total</span>
+            <span class="text-brand-600" id="qrTotal">$0.00</span>
+          </div>
+        </div>
+
+        <!-- Timer -->
+        <div class="flex items-center gap-2 text-sm text-warm-800/50 mb-4">
+          <i data-lucide="timer" class="w-4 h-4 text-brand-500"></i>
+          <span>QR expires in <strong id="timer" class="text-warm-800">5:00</strong></span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-3 w-full">
+          <button onclick="closeQrModal()" class="flex-1 py-3 rounded-xl border-2 border-warm-200 text-sm font-semibold text-warm-800/70 hover:bg-warm-50 transition-all">
+            Cancel
+          </button>
+          <button onclick="confirmPayment()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white text-sm font-semibold shadow-lg shadow-green-500/30 hover:shadow-xl transition-all flex items-center justify-center gap-1.5">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            I've Paid
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div id="successModal" class="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4 hidden">
+    <div class="qr-modal bg-white rounded-3xl w-full max-w-sm p-8 text-center">
+      <div class="w-20 h-20 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-5">
+        <i data-lucide="check" class="w-10 h-10 text-green-600"></i>
+      </div>
+      <h3 class="font-display text-2xl font-bold mb-2">Order Confirmed! 🎉</h3>
+      <p class="text-warm-800/60 text-sm mb-2">Your order has been received and is being prepared.</p>
+      <p class="text-xs text-warm-800/40 mb-6">Estimated time: 15-20 minutes</p>
+      <div class="bg-warm-50 rounded-xl p-4 mb-6">
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-warm-800/50">Order Number</span>
+          <span class="font-bold text-brand-600" id="successOrderNum">#DNE-0007</span>
+        </div>
+      </div>
+      <button onclick="resetOrder()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white font-semibold shadow-lg shadow-brand-500/30 hover:shadow-xl transition-all">
+        Back to Menu
+      </button>
+    </div>
+  </div>
+
+  <!-- Floating Cart Button (mobile) -->
+  <div id="floatingCart" class="fixed bottom-6 left-4 right-4 z-30 max-w-lg mx-auto hidden">
+    <button onclick="toggleCart()" class="w-full py-3.5 rounded-2xl bg-warm-900 text-white font-semibold shadow-2xl shadow-warm-900/40 flex items-center justify-between px-5 hover:bg-warm-800 transition-all active:scale-[0.98]">
+      <span class="flex items-center gap-2">
+        <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+        <span id="floatingCount">0 items</span>
+      </span>
+      <span id="floatingTotal" class="font-bold">$0.00</span>
+    </button>
+  </div>
+
+  <script>
+    // ===== CONFIG =====
+    const TABLE = 7;
+    const FLOOR = 2;
+
+    // ===== MENU DATA =====
+    const menuItems = [
+      {
+        id: 1, name: 'Bruschetta', category: "starters",
+        desc: "Toasted bread with fresh tomatoes, basil & olive oil",
+        price: 8.50, image: "http://static.photos/food/640x360/10",
+        tag: "Popular", vegetarian: true
+      },
+      {
+        id: 2, name: "Spring Rolls", category: "starters",
+        desc: "Crispy vegetable rolls with sweet chili sauce",
+        price: 7.00, image: "http://static.photos/food/640x360/20",
+        tag: "", vegetarian: true
+      },
+      {
+        id: 3, name: "Calamari", category: "starters",
+        desc: "Lightly battered squid with lemon aioli",
+        price: 11.50, image: "http://static.photos/food/640x360/30",
+        tag: "Chef's Pick", vegetarian: false
+      },
+      {
+        id: 4, name: "Soup of the Day", category: "starters",
+        desc: "Freshly prepared seasonal soup with crusty bread",
+        price: 6.50, image: "http://static.photos/food/640x360/40",
+        tag: "", vegetarian: true
+      },
+      {
+        id: 5, name: "Grilled Salmon", category: "mains",
+        desc: "Atlantic salmon with lemon butter & seasonal vegetables",
+        price: 24.00, image: "http://static.photos/food/640x360/50",
+        tag: "Signature", vegetarian: false
+      },
+      {
+        id: 6, name: "Ribeye Steak", category: "mains",
+        desc: "12oz prime ribeye with peppercorn sauce & truffle fries",
+        price: 32.00, image: "http://static.photos/food/640x360/60",
+        tag: "Popular", vegetarian: false
+      },
+      {
+        id: 7, name: "Mushroom Risotto", category: "mains",
+        desc: "Creamy arborio rice with wild mushrooms & parmesan",
+        price: 18.00, image: "http://static.photos/food/640x360/70",
+        tag: "", vegetarian: true
+      },
+      {
+        id: 8, name: "Pasta Carbonara", category: "mains",
+        desc: "Classic spaghetti with guanciale, egg & pecorino",
+        price: 17.50, image: "http://static.photos/food/640x360/80",
+        tag: "Italian Classic", vegetarian: false
+      },
+      {
+        id: 9, name: "Tiramisu", category: "desserts",
+        desc: "Layered coffee-soaked ladyfingers with mascarpone",
+        price: 9.00, image: "http://static.photos/food/640x360/90",
+        tag: "Must Try", vegetarian: true
+      },
+      {
+        id: 10, name: "Chocolate Lava Cake", category: "desserts",
+        desc: "Warm chocolate fondant with vanilla ice cream",
+        price: 10.50, image: "http://static.photos/food/640x360/100",
+        tag: "Popular", vegetarian: true
+      },
+      {
+        id: 11, name: "Crème Brûlée", category: "desserts",
+        desc: "Classic vanilla custard with caramelized sugar",
+        price: 8.50, image: "http://static.photos/food/640x360/110",
+        tag: "", vegetarian: true
+      },
+      {
+        id: 12, name: "Fresh Lemonade", category: "drinks",
+        desc: "Hand-squeezed lemonade with mint & ice",
+        price: 5.00, image: "http://static.photos/food/640x360/120",
+        tag: "", vegetarian: true
+      },
+      {
+        id: 13, name: "Iced Matcha Latte", category: "drinks",
+        desc: "Japanese matcha with oat milk over ice",
+        price: 6.50, image: "http://static.photos/food/640x360/130",
+        tag: "husni fav", vegetarian: true
+      },
+      {
+        id: 14, name: "Espresso", category: "drinks",
+        desc: "Double shot of our signature house blend",
+        price: 3.50, image: "http://static.photos/food/640x360/140",
+        tag: "", vegetarian: true
+      },
+      {
+        id: 15, name: "Mojito", category: "cocktails",
+        desc: "White rum, fresh mint, lime & soda",
+        price: 12.00, image: "http://static.photos/food/640x360/150",
+        tag: "Refreshing", vegetarian: true
+      },
+      {
+        id: 16, name: "Old Fashioned", category: "cocktails",
+        desc: "Bourbon, bitters, sugar & orange peel",
+        price: 14.00, image: "http://static.photos/food/640x360/160",
+        tag: "Classic", vegetarian: true
+      },
+      {
+        id: 17, name: "Aperol Spritz", category: "cocktails",
+        desc: "Aperol, prosecco & soda water with orange",
+        price: 13.00, image: "http://static.photos/food/640x360/170",
+        tag: "Popular", vegetarian: true
+      }
+    ];
+
+    let cart = {};
+    let currentCategory = 'all';
+    let timerInterval = null;
+
+    // ===== RENDER MENU =====
+    function renderMenu(items) {
+      const grid = document.getElementById('menuGrid');
+      if (items.length === 0) {
+        grid.innerHTML = `
+          <div class="flex flex-col items-center justify-center py-16 text-center">
+            <div class="w-16 h-16 rounded-full bg-warm-100 flex items-center justify-center mb-4">
+              <i data-lucide="search-x" class="w-7 h-7 text-warm-800/30"></i>
+            </div>
+            <p class="font-semibold text-warm-800/60">No items found</p>
+            <p class="text-sm text-warm-800/40 mt-1">Try a different search or category</p>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      // Group by category
+      const grouped = {};
+      items.forEach(item => {
+        if (!grouped[item.category]) grouped[item.category] = [];
+        grouped[item.category].push(item);
+      });
+
+      const categoryNames = {
+        starters: '🥗 Starters',
+        mains: '🍝 Main Course',
+        desserts: '🍰 Desserts',
+        drinks: '🥤 Drinks',
+        cocktails: '🍸 Cocktails'
+      };
+
+      let html = '';
+      for (const [cat, catItems] of Object.entries(grouped)) {
+        html += `
+          <div class="mb-4">
+            <h3 class="font-display font-bold text-lg mb-3 text-warm-800">${categoryNames[cat] || cat}</h3>
+            <div class="space-y-3">
+        `;
+        catItems.forEach((item, idx) => {
+          const qty = cart[item.id] || 0;
+          html += createMenuItemCard(item, qty, idx);
+        });
+        html += `</div></div>`;
+      }
+      grid.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function createMenuItemCard(item, qty, idx) {
+      const tagColors = {
+        'Popular': 'bg-brand-500/10 text-brand-600',
+        "Chef's Pick": 'bg-purple-500/10 text-purple-600',
+        'Signature': 'bg-red-500/10 text-red-600',
+        'Must Try': 'bg-green-500/10 text-green-600',
+        'New': 'bg-blue-500/10 text-blue-600',
+        'Italian Classic': 'bg-amber-500/10 text-amber-600',
+        'Refreshing': 'bg-cyan-500/10 text-cyan-600',
+        'husni fav': 'bg-indigo-500/10 text-indigo-600'
+      };
+      const tagClass = tagColors[item.tag] || 'bg-warm-200/60 text-warm-800/60';
+
+      return `
+        <div class="menu-card bg-white rounded-2xl border border-warm-200/60 shadow-sm overflow-hidden fade-in" style="animation-delay: ${idx * 0.05}s">
+          <div class="flex">
+            <div class="w-28 h-28 flex-shrink-0 relative overflow-hidden">
+              <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='http://static.photos/food/320x240'">
+              ${item.vegetarian ? '<span class="absolute top-2 left-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"><i data-lucide="leaf" class="w-3 h-3 text-white"></i></span>' : ''}
+            </div>
+            <div class="flex-1 p-3 flex flex-col justify-between min-w-0">
+              <div>
+                <div class="flex items-start justify-between gap-2">
+                  <h4 class="font-semibold text-sm leading-tight truncate">${item.name}</h4>
+                  ${item.tag ? `<span class="flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${tagClass}">${item.tag}</span>` : ''}
+                </div>
+                <p class="text-xs text-warm-800/50 mt-0.5 line-clamp-2">${item.desc}</p>
+              </div>
+              <div class="flex items-center justify-between mt-2">
+                <span class="font-bold text-brand-600">$${item.price.toFixed(2)}</span>
+                ${qty === 0 ? `
+                  <button onclick="addToCart(${item.id})" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-brand-500/10 text-brand-600 text-xs font-semibold hover:bg-brand-500 hover:text-white transition-all active:scale-95">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add
+                  </button>
+                ` : `
+                  <div class="flex items-center gap-1">
+                    <button onclick="removeFromCart(${item.id})" class="qty-btn w-7 h-7 rounded-lg bg-warm-100 flex items-center justify-center hover:bg-warm-200 transition-colors">
+                      <i data-lucide="minus" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <span class="w-7 text-center text-sm font-bold">${qty}</span>
+                    <button onclick="addToCart(${item.id})" class="qty-btn w-7 h-7 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition-colors">
+                      <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                `}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ===== CART LOGIC =====
+    function addToCart(id) {
+      cart[id] = (cart[id] || 0) + 1;
+      updateUI();
+    }
+
+    function removeFromCart(id) {
+      if (cart[id]) {
+        cart[id]--;
+        if (cart[id] === 0) delete cart[id];
+      }
+      updateUI();
+    }
+
+    function updateUI() {
+      renderMenu(getFilteredItems());
+      updateCartSummary();
+      updateBadges();
+    }
+
+    function getFilteredItems() {
+      let items = menuItems;
+      if (currentCategory !== 'all') {
+        items = items.filter(i => i.category === currentCategory);
+      }
+      const search = document.getElementById('searchInput').value.toLowerCase().trim();
+      if (search) {
+        items = items.filter(i => i.name.toLowerCase().includes(search) || i.desc.toLowerCase().includes(search));
+      }
+      return items;
+    }
+
+    function updateCartSummary() {
+      const cartItemsList = document.getElementById('cartItemsList');
+      const emptyCart = document.getElementById('emptyCart');
+      const cartFooter = document.getElementById('cartFooter');
+      const floatingCart = document.getElementById('floatingCart');
+
+      const cartEntries = Object.entries(cart);
+      const totalCount = Object.values(cart).reduce((s, q) => s + q, 0);
+
+      if (cartEntries.length === 0) {
+        emptyCart.classList.remove('hidden');
+        cartItemsList.classList.add('hidden');
+        cartFooter.classList.add('hidden');
+        floatingCart.classList.add('hidden');
+        return;
+      }
+
+      emptyCart.classList.add('hidden');
+      cartItemsList.classList.remove('hidden');
+      cartFooter.classList.remove('hidden');
+      floatingCart.classList.remove('hidden');
+
+      let subtotal = 0;
+      let html = '';
+      cartEntries.forEach(([id, qty]) => {
+        const item = menuItems.find(i => i.id === parseInt(id));
+        if (!item) return;
+        const lineTotal = item.price * qty;
+        subtotal += lineTotal;
+        html += `
+          <div class="order-item-enter flex items-center gap-3 bg-warm-50 rounded-xl p-3">
+            <img src="${item.image}" alt="${item.name}" class="w-14 h-14 rounded-lg object-cover flex-shrink-0" onerror="this.src='http://static.photos/food/200x200'">
+            <div class="flex-1 min-w-0">
+              <h4 class="font-semibold text-sm truncate">${item.name}</h4>
+              <p class="text-xs text-warm-800/50">$${item.price.toFixed(2)} each</p>
+              <div class="flex items-center gap-1.5 mt-1.5">
+                <button onclick="removeFromCart(${item.id})" class="qty-btn w-6 h-6 rounded-md bg-white border border-warm-200 flex items-center justify-center hover:bg-warm-100">
+                  <i data-lucide="minus" class="w-3 h-3"></i>
+                </button>
+                <span class="w-6 text-center text-sm font-bold">${qty}</span>
+                <button onclick="addToCart(${item.id})" class="qty-btn w-6 h-6 rounded-md bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600">
+                  <i data-lucide="plus" class="w-3 h-3"></i>
+                </button>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="font-bold text-sm text-brand-600">$${lineTotal.toFixed(2)}</p>
+              <button onclick="removeAll(${item.id})" class="text-xs text-red-400 hover:text-red-600 mt-1 transition-colors">Remove</button>
+            </div>
+          </div>`;
+      });
+
+      cartItemsList.innerHTML = html;
+
+      const tax = subtotal * 0.10;
+      const serviceCharge = subtotal * 0.05;
+      const total = subtotal + tax + serviceCharge;
+
+      document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+      document.getElementById('tax').textContent = `$${tax.toFixed(2)}`;
+      document.getElementById('serviceCharge').textContent = `$${serviceCharge.toFixed(2)}`;
+      document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+
+      document.getElementById('floatingCount').textContent = `${totalCount} item${totalCount !== 1 ? 's' : ''}`;
+      document.getElementById('floatingTotal').textContent = `$${total.toFixed(2)}`;
+
+      lucide.createIcons();
+    }
+
+    function updateBadges() {
+      const totalCount = Object.values(cart).reduce((s, q) => s + q, 0);
+      const badge = document.getElementById('cartBadge');
+      if (totalCount > 0) {
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+        badge.textContent = totalCount > 99 ? '99+' : totalCount;
+        badge.classList.add('badge-bounce');
+        setTimeout(() => badge.classList.remove('badge-bounce'), 400);
+      } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+      }
+    }
+
+    function removeAll(id) {
+      delete cart[id];
+      updateUI();
+    }
+
+    // ===== CATEGORY FILTER =====
+    function filterCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.dataset.cat === cat) {
+          btn.className = 'tab-btn tab-active flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300';
+        } else {
+          btn.className = 'tab-btn flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold bg-white border border-warm-200 text-warm-800/70 hover:border-brand-300 transition-all duration-300';
+        }
+      });
+      renderMenu(getFilteredItems());
+    }
+
+    function searchMenu() {
+      renderMenu(getFilteredItems());
+    }
+
+    // ===== CART TOGGLE =====
+    function toggleCart() {
+      const sidebar = document.getElementById('cartSidebar');
+      const overlay = document.getElementById('cartOverlay');
+      const isOpen = sidebar.classList.contains('open');
+
+      if (isOpen) {
+        sidebar.classList.remove('open');
+        sidebar.classList.add('closed');
+        overlay.classList.add('opacity-0', 'pointer-events-none');
+      } else {
+        sidebar.classList.remove('closed');
+        sidebar.classList.add('open');
+        overlay.classList.remove('opacity-0', 'pointer-events-none');
+        updateCartSummary();
+      }
+    }
+
+    // ===== QR PAYMENT =====
+    function proceedToPayment() {
+      const cartEntries = Object.entries(cart);
+      if (cartEntries.length === 0) return;
+
+      const sidebar = document.getElementById('cartSidebar');
+      const overlay = document.getElementById('cartOverlay');
+      sidebar.classList.remove('open');
+      sidebar.classList.add('closed');
+      overlay.classList.add('opacity-0', 'pointer-events-none');
+
+      // Calculate totals
+      let subtotal = 0;
+      let itemCount = 0;
+      cartEntries.forEach(([id, qty]) => {
+        const item = menuItems.find(i => i.id === parseInt(id));
+        if (item) {
+          subtotal += item.price * qty;
+          itemCount += qty;
+        }
+      });
+      const total = subtotal + subtotal * 0.10 + subtotal * 0.05;
+      const orderNum = `#DNE-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+
+      document.getElementById('orderNumber').textContent = orderNum;
+      document.getElementById('qrItemCount').textContent = itemCount;
+      document.getElementById('qrTotal').textContent = `${total.toFixed(2)}`;
+      document.getElementById('qrTableNum').textContent = TABLE;
+
+      // Generate QR
+      const qrContainer = document.getElementById('qrCode');
+      qrContainer.innerHTML = '';
+      const paymentData = JSON.stringify({
+        merchant: 'The Golden Fork',
+        order: orderNum,
+        table: 7,
+        amount: total.toFixed(2),
+        currency: 'USD',
+        timestamp: new Date().toISOString()
+      });
+
+      new QRCode(qrContainer, {
+        text: paymentData,
+        width: 180,
+        height: 180,
+        colorDark: '#1a150e',
+        colorLight: '#ffffff',
+       correctLevel: QRCode.CorrectLevel.M
+      });
+
+      document.getElementById('qrModal').classList.remove('hidden');
+
+      // Start timer
+      startTimer(300);
+    }
+
+    function startTimer(seconds) {
+      if (timerInterval) clearInterval(timerInterval);
+      let remaining = seconds;
+      const timerEl = document.getElementById('timer');
+      timerInterval = setInterval(() => {
+        remaining--;
+        const m = Math.floor(remaining / 60);
+        const s = remaining % 60;
+        timerEl.textContent = `${m}:${String(s).padStart(2, '0')}`;
+        if (remaining <= 0) {
+          clearInterval(timerInterval);
+          closeQrModal();
+        }
+      }, 1000);
+    }
+
+    function closeQrModal() {
+      document.getElementById('qrModal').classList.add('hidden');
+      if (timerInterval) clearInterval(timerInterval);
+    }
+
+    function confirmPayment() {
+      closeQrModal();
+      const orderNum = document.getElementById('orderNumber').textContent;
+      document.getElementById('successOrderNum').textContent = orderNum;
+      document.getElementById('successModal').classList.remove('hidden');
+    }
+
+    function resetOrder() {
+      cart = {};
+      document.getElementById('successModal').classList.add('hidden');
+      document.getElementById('floatingCart').classList.add('hidden');
+      updateUI();
+    }
+
+    // ===== INIT =====
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('tableInfo').textContent = `Table ${TABLE} • Floor ${FLOOR}`;
+      renderMenu(menuItems);
+    });
+  </script>
+</body>
+</html>

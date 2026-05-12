@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kitchen Order Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        
+        :root {
+            --bg-dark: #0f1117;
+            --bg-card: #1a1d27;
+            --bg-card-hover: #222633;
+            --border-color: #2a2e3d;
+            --accent-green: #22c55e;
+            --accent-orange: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --accent-purple: #a855f7;
+        }
+
+        body {
+            background: var(--bg-dark);
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .order-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .order-card:hover {
+            background: var(--bg-card-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .order-card.urgent {
+            border-color: var(--accent-red);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+        }
+
+        .order-card.pulse-urgent {
+            animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), urgentPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes urgentPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.15); }
+            50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.35); }
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .column-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(12px);
+            background: rgba(15, 17, 23, 0.85);
+        }
+
+        .badge-new {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+        }
+
+        .badge-preparing {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+        }
+
+        .badge-ready {
+            background: linear-gradient(135deg, #22c55e, #10b981);
+        }
+
+        .btn-action {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-action::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(rgba(255,255,255,0.1), transparent);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .btn-action:hover::after {
+            opacity: 1;
+        }
+
+        .btn-accept {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+
+        .btn-accept:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+        }
+
+        .btn-ready {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+        }
+
+        .btn-ready:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-done {
+            background: linear-gradient(135deg, #a855f7, #7c3aed);
+        }
+
+        .btn-done:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
+        }
+
+        .btn-cancel {
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+
+        .btn-cancel:hover {
+            background: rgba(239, 68, 68, 0.15);
+            transform: scale(1.05);
+        }
+
+        .timer-warn {
+            color: var(--accent-orange);
+            animation: timerPulse 1s ease-in-out infinite;
+        }
+
+        .timer-danger {
+            color: var(--accent-red);
+            animation: timerPulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes timerPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .item-row {
+            border-bottom: 1px solid rgba(42, 46, 61, 0.5);
+        }
+
+        .item-row:last-child {
+            border-bottom: none;
+        }
+
+        .order-column {
+            min-height: calc(100vh - 140px);
+        }
+
+        .notification-bar {
+            animation: fadeInScale 0.3s ease-out;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #2a2e3d;
+            border-radius: 4px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #3a3e4d;
+        }
+
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            animation: fadeInScale 0.3s ease-out;
+        }
+
+        .tab-active {
+            background: var(--bg-card);
+            border-bottom: 2px solid #3b82f6;
+            color: #fff;
+        }
+
+        .priority-high {
+            border-left: 3px solid var(--accent-red);
+        }
+
+        .priority-medium {
+            border-left: 3px solid var(--accent-orange);
+        }
+
+        .priority-low {
+            border-left: 3px solid var(--accent-blue);
+        }
+
+        .completed-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(34, 197, 94, 0.08);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeInScale 0.3s ease-out;
+        }
+
+        .order-count-badge {
+            min-width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        @media (max-width: 768px) {
+            .order-columns {
+                flex-direction: column;
+            }
+            .order-column {
+                min-height: auto;
+                max-height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="border-b border-[#2a2e3d] bg-[#0f1117]/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-[1920px] mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+                    <i data-lucide="chef-hat" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-white tracking-tight">Kitchen Order Hub</h1>
+                    <p class="text-xs text-gray-500">Real-time order management</p>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="hidden md:flex items-center gap-3">
+                <div class="stat-card px-4 py-2 flex items-center gap-2">
+                    <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span class="text-xs text-gray-400">New</span>
+                    <span id="stat-new" class="text-sm font-bold text-white">0</span>
+                </div>
+                <div class="stat-card px-4 py-2 flex items-center gap-2">
+                    <div class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                    <span class="text-xs text-gray-400">Preparing</span>
+                    <span id="stat-preparing" class="text-sm font-bold text-white">0</span>
+                </div>
+                <div class="stat-card px-4 py-2 flex items-center gap-2">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-xs text-gray-400">Ready</span>
+                    <span id="stat-ready" class="text-sm font-bold text-white">0</span>
+                </div>
+                <div class="stat-card px-4 py-2 flex items-center gap-2">
+                    <div class="w-2 h-2 bg-purple-500 rounded-full rounded-full"></div>
+                    <span class="text-xs text-gray-400">Completed</span>
+                    <span id="stat-completed" class="text-sm font-bold text-white">0</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="simulateNewOrder()" class="btn-action bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 hover:shadow-lg hover:shadow-blue-500/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Simulate Order</span>
+                </button>
+                <button onclick="toggleSound()" id="sound-btn" class="btn-action bg-[#222633] text-gray-400 px-3 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 hover:text-white">
+                    <i data-lucide="volume-2" class="w-4 h-4" id="sound-icon"></i>
+                </button>
+                <button onclick="showHistory()" class="btn-action bg-[#222633] text-gray-400 px-3 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 hover:text-white">
+                    <i data-lucide="history" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Notification Toast -->
+    <div id="toast-container" class="fixed top-20 right-4 z-[100] flex flex-col gap-2 max-w-sm"></div>
+
+    <!-- Main Content - Order Columns -->
+    <main class="max-w-[1920px] mx-auto p-4">
+        <!-- Mobile Stats -->
+        <div class="md:hidden flex items-center gap-2 mb-4 overflow-x-auto pb-2">
+            <div class="stat-card px-3 py-2 flex items-center gap-2 flex-shrink-0">
+                <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <span class="text-xs text-gray-400">New</span>
+                <span id="stat-new-m" class="text-sm font-bold text-white">0</span>
+            </div>
+            <div class="stat-card px-3 py-2 flex items-center gap-2 flex-shrink-0">
+                <div class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                <span class="text-xs text-gray-400">Prep</span>
+                <span id="stat-preparing-m" class="text-sm font-bold text-white">0</span>
+            </div>
+            <div class="stat-card px-3 py-2 flex items-center gap-2 flex-shrink-0">
+                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span class="text-xs text-gray-400">Ready</span>
+                <span id="stat-ready-m" class="text-sm font-bold text-white">0</span>
+            </div>
+            <div class="stat-card px-3 py-2 flex items-center gap-2 flex-shrink-0">
+                <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
+                <span class="text-xs text-gray-400">Done</span>
+                <span id="stat-completed-m" class="text-sm font-bold text-white">0</span>
+            </div>
+        </div>
+
+        <div class="order-columns flex gap-4">
+            <!-- New Orders Column -->
+            <div class="flex-1 min-w-0">
+                <div class="column-header pb-3 pt-1 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full"></div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-gray-300">New Orders</h2>
+                        <span id="count-new" class="order-count-badge bg-blue-500/20 text-blue-400">0</span>
+                    </div>
+                </div>
+                <div class="order-column space-y-3 scrollbar-thin overflow-y-auto pr-1" id="column-new">
+                    <div id="empty-new" class="flex flex-col items-center justify-center py-16 text-gray-600">
+                        <i data-lucide="inbox" class="w-12 h-12 mb-3 opacity-30"></i>
+                        <p class="text-sm font-medium">No new orders</p>
+                        <p class="text-xs mt-1">Click "Simulate Order" to test</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preparing Column -->
+            <div class="flex-1 min-w-0">
+                <div class="column-header pb-3 pt-1 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-full"></div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-gray-300">Preparing</h2>
+                        <span id="count-preparing" class="order-count-badge bg-orange-500/20 text-orange-400">0</span>
+                    </div>
+                </div>
+                <div class="order-column space-y-3 scrollbar-thin overflow-y-auto pr-1" id="column-preparing">
+                    <div id="empty-preparing" class="flex flex-col items-center justify-center py-16 text-gray-600">
+                        <i data-lucide="flame" class="w-12 h-12 mb-3 opacity-30"></i>
+                        <p class="text-sm font-medium">No orders preparing</p>
+                        <p class="text-xs mt-1">Accept orders to start</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ready Column -->
+            <div class="flex-1 min-w-0">
+                <div class="column-header pb-3 pt-1 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full"></div>
+                        <h2 class="text-sm font-bold uppercase tracking-wider text-gray-300">Ready to Serve</h2>
+                        <span id="count-ready" class="order-count-badge bg-green-500/20 text-green-400">0</span>
+                    </div>
+                </div>
+                <div class="order-column space-y-3 scrollbar-thin overflow-y-auto pr-1" id="column-ready">
+                    <div id="empty-ready" class="flex flex-col items-center justify-center py-16 text-gray-600">
+                        <i data-lucide="check-circle" class="w-12 h-12 mb-3 opacity-30"></i>
+                        <p class="text-sm font-medium">No orders ready</p>
+                        <p class="text-xs mt-1">Finish preparing orders</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Order Detail Modal -->
+    <div id="order-modal" class="fixed inset-0 z-[80] hidden">
+        <div class="modal-backdrop absolute inset-0" onclick="closeModal()"></div>
+        <div class="modal-content absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl p-6 scrollbar-thin">
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="history-modal" class="fixed inset-0 z-[80] hidden">
+        <div class="modal-backdrop absolute inset-0" onclick="closeHistory()"></div>
+        <div class="modal-content absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl p-6 scrollbar-thin">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-white">Completed Orders History</h2>
+                <button onclick="closeHistory()" class="text-gray-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="history-list"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
